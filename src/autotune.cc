@@ -56,6 +56,9 @@ class ElapsedTimeMarker {
 
 namespace fasttext {
 
+constexpr double kUnknownBestScore = -1.0;
+constexpr int kCutoffLimit = 256;
+
 template <typename T>
 T getArgGauss(
     T val,
@@ -114,7 +117,8 @@ AutotuneStrategy::AutotuneStrategy(
       trials_(0),
       bestMinnIndex_(0),
       bestDsubExponent_(1),
-      bestNonzeroBucket_(2000000) {
+      bestNonzeroBucket_(2000000),
+      originalBucket_(originalArgs.bucket) {
   minnChoices_ = {0, 2, 3};
   updateBest(originalArgs);
 }
@@ -167,13 +171,14 @@ Args AutotuneStrategy::ask(double elapsed) {
     }
   }
   if (!args.isManual("bucket")) {
-    if (args.wordNgrams <= 1 && args.maxn == 0) {
-      args.bucket = 0;
-    } else {
-      int nonZeroBucket = updateArgGauss(
-          bestNonzeroBucket_, 10000, 10000000, 2.0, 1.5, t, false, rng_);
-      args.bucket = nonZeroBucket;
-    }
+    int nonZeroBucket = updateArgGauss(
+        bestNonzeroBucket_, 10000, 10000000, 2.0, 1.5, t, false, rng_);
+    args.bucket = nonZeroBucket;
+  } else {
+    args.bucket = originalBucket_;
+  }
+  if (args.wordNgrams <= 1 && args.maxn == 0) {
+    args.bucket = 0;
   }
   if (!args.isManual("loss")) {
     args.loss = loss_name::softmax;
@@ -220,7 +225,7 @@ void Autotune::printInfo(double maxDuration) {
   std::cerr << std::setprecision(1) << std::setw(5) << progress << "%";
   std::cerr << " Trials: " << std::setw(4) << trials_;
   std::cerr << " Best score: " << std::setw(9) << std::setprecision(6);
-  if (bestScore_ == Autotune::kUnknownBestScore) {
+  if (bestScore_ == kUnknownBestScore) {
     std::cerr << "unknown";
   } else {
     std::cerr << bestScore_;
@@ -257,7 +262,7 @@ void Autotune::startTimer(const Args& args) {
   std::chrono::steady_clock::time_point start =
       std::chrono::steady_clock::now();
   timer_ = std::thread([=]() { timer(start, args.autotuneDuration); });
-  bestScore_ = Autotune::kUnknownBestScore;
+  bestScore_ = kUnknownBestScore;
   trials_ = 0;
   continueTraining_ = true;
 
@@ -401,7 +406,7 @@ void Autotune::train(const Args& autotuneArgs) {
             autotuneArgs.getAutotuneMetric(),
             autotuneArgs.getAutotuneMetricLabel());
 
-        if (bestScore_ == Autotune::kUnknownBestScore ||
+        if (bestScore_ == kUnknownBestScore ||
             (currentScore > bestScore_)) {
           bestTrainArgs = trainArgs;
           bestScore_ = currentScore;
@@ -434,7 +439,7 @@ void Autotune::train(const Args& autotuneArgs) {
     timer_.join();
   }
 
-  if (bestScore_ == Autotune::kUnknownBestScore) {
+  if (bestScore_ == kUnknownBestScore) {
     std::string errorMessage;
     if (sizeConstraintWarning) {
       errorMessage =

@@ -28,6 +28,7 @@ class AutotuneStrategy {
   int bestMinnIndex_;
   int bestDsubExponent_;
   int bestNonzeroBucket_;
+  int originalBucket_;
   std::vector<int> minnChoices_;
   int getIndex(int val, const std::vector<int>& choices);
 
@@ -72,8 +73,6 @@ class Autotune {
     TimeoutError() : std::runtime_error("Autotune timed out.") {}
   };
 
-  static constexpr double kUnknownBestScore = -1.0;
-  static constexpr int kCutoffLimit = 256;
 
  public:
   Autotune() = delete;

@@ -22,7 +22,7 @@ BOW = "<"
 EOW = ">"
 
 
-def eprint(cls, *args, **kwargs):
+def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
@@ -43,7 +43,9 @@ class _FastText(object):
             self.f.loadModel(model_path)
         self._words = None
         self._labels = None
+        self.set_args(args)
 
+    def set_args(self, args=None):
         if args:
             arg_names = ['lr', 'dim', 'ws', 'epoch', 'minCount',
                          'minCountLabel', 'minn', 'maxn', 'neg', 'wordNgrams',
@@ -168,7 +170,7 @@ class _FastText(object):
 
     def get_input_matrix(self):
         """
-        Get a copy of the full input matrix of a Model. This only
+        Get a reference to the full input matrix of a Model. This only
         works if the model is not quantized.
         """
         if self.f.isQuant():
@@ -177,7 +179,7 @@ class _FastText(object):
 
     def get_output_matrix(self):
         """
-        Get a copy of the full output matrix of a Model. This only
+        Get a reference to the full output matrix of a Model. This only
         works if the model is not quantized.
         """
         if self.f.isQuant():
@@ -289,6 +291,14 @@ class _FastText(object):
             input, qout, cutoff, retrain, epoch, lr, thread, verbose, dsub,
             qnorm
         )
+
+    def set_matrices(self, input_matrix, output_matrix):
+        """
+        Set input and output matrices. This function assumes you know what you
+        are doing.
+        """
+        self.f.setMatrices(input_matrix.astype(np.float32),
+                           output_matrix.astype(np.float32))
 
     @property
     def words(self):
@@ -453,6 +463,7 @@ def train_supervised(*kargs, **kwargs):
     a = _build_args(args, manually_set_args)
     ft = _FastText(args=a)
     fasttext.train(ft.f, a)
+    ft.set_args(ft.f.getArgs())
     return ft
 
 
@@ -478,6 +489,7 @@ def train_unsupervised(*kargs, **kwargs):
     a = _build_args(args, manually_set_args)
     ft = _FastText(args=a)
     fasttext.train(ft.f, a)
+    ft.set_args(ft.f.getArgs())
     return ft
 
 
